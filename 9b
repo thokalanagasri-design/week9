@@ -1,0 +1,102 @@
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+class User {
+  final int id;
+  final String name;
+  final String email;
+  final String phone;
+  User({
+    required this.id,
+    required this.name,
+    required this.email,
+    required this.phone,
+  });
+
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      id: json['id'],
+      name: json['name'],
+      email: json['email'],
+      phone: json['phone'],
+    );
+  }
+}
+
+Future<List<User>> fetchUsers() async {
+  const url = 'https://jsonplaceholder.typicode.com/users';
+  try {
+    final response = await http.get(Uri.parse(url));
+    print("STATUS CODE: ${response.statusCode}");
+    print("BODY: ${response.body}");
+    if (response.statusCode == 200) {
+      final List data = json.decode(response.body);
+      return data.map((json) => User.fromJson(json)).toList();
+    } else {
+      throw Exception('Server returned status code: ${response.statusCode}');
+    }
+  } catch (e) {
+    print("NETWORK ERROR: $e");
+    throw Exception('Failed to load users: $e');
+  }
+}
+
+void main() {
+  runApp(const MyApp());
+}
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: UserListScreen(),
+    );
+  }
+}
+
+class UserListScreen extends StatelessWidget {
+  const UserListScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('User List')),
+      body: FutureBuilder<List<User>>(
+        future: fetchUsers(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text(' ${snapshot.error}'));
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('No users found'));
+          }
+          final users = snapshot.data!;
+          return ListView.builder(
+            itemCount: users.length,
+            itemBuilder: (context, index) {
+              final user = users[index];
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                elevation: 3,
+                child: ListTile(
+                  leading: CircleAvatar(child: Text(user.id.toString())),
+                  title: Text(user.name),
+                  subtitle: Text(user.email),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.phone),
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Call ${user.phone}")),
+                      );
+                    },
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
