@@ -1,0 +1,103 @@
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: UsersPage(),
+    );
+  }
+}
+
+class User {
+  final int id;
+  final String name;
+  final String email;
+
+  User({required this.id, required this.name, required this.email});
+
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      id: json['id'] ?? 0,
+      name: json['name'] ?? "N/A",
+      email: json['email'] ?? "N/A",
+    );
+  }
+}
+
+class UsersPage extends StatefulWidget {
+  const UsersPage({super.key});
+
+  @override
+  State<UsersPage> createState() => _UsersPageState();
+}
+
+class _UsersPageState extends State<UsersPage> {
+  late Future<List<User>> _futureUsers;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureUsers = fetchUsers();
+  }
+
+
+  Future<List<User>> fetchUsers() async {
+    const url = 'https://jsonplaceholder.typicode.com/users';
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((userJson) => User.fromJson(userJson)).toList();
+    } else {
+      throw Exception("Failed to load users");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('User List')),
+      body: FutureBuilder<List<User>>(
+        future: _futureUsers,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(child: Text("Error: ${snapshot.error}"));
+          }
+
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text("No users found"));
+          }
+
+          final users = snapshot.data!;
+          return ListView.separated(
+            itemCount: users.length,
+            separatorBuilder: (_, __) => const Divider(),
+            itemBuilder: (context, index) {
+              final user = users[index];
+              return ListTile(
+                leading: CircleAvatar(child: Text(user.id.toString())),
+                title: Text(user.name),
+                subtitle: Text(user.email),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
